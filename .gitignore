@@ -1,0 +1,4 @@
+.cache/*
+output/*
+custom/__pycache__/custom.cpython-36.pyc
+Data/.DS_Store
