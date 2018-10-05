@@ -2,3 +2,6 @@
 output/*
 custom/__pycache__/custom.cpython-36.pyc
 Data/.DS_Store
+.vscode/*
+.DS_Store
+custom/.DS_Store

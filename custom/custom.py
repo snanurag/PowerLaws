@@ -2,7 +2,6 @@ import datetime
 import numpy as np
 import pandas as pd
 
-print(pd.to_datetime('2018-09-24 15:00:00', format="%Y-%m-%d %H:%M:%S").dayofweek)
 def get_day_from_timestamp(x):
     return pd.to_datetime(x, format="%Y-%m-%d %H:%M:%S").dayofweek
 
@@ -70,3 +69,12 @@ def is_zero(x):
 
 def square(x):
     return x*x
+
+def count_hour_is_less(x):
+    return x < 24
+
+def count_day_is_less(x):
+    return x < 7
+
+def multiply_by_7(x):
+    return x * 7
