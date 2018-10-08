@@ -78,3 +78,36 @@ def count_day_is_less(x):
 
 def multiply_by_7(x):
     return x * 7
+
+def agg_40(x):
+    min = x.min()
+    return 0.45 * (1 - min) + min
+
+def agg_10(x):
+    min = x.min()
+    return 0.1 * (1 - min) + min
+
+def agg_daily_upper(x):
+    min = x.min()
+    return 0.7 * (1 - min) + min
+
+def agg_daily_lower(x):
+    min = x.min()
+    return 0.2 * (1 - min) + min
+
+def get_zero(x):
+    return 0
+
+def get_working_hours(row):
+    if row['consumption'] > row['consumptionagg_40'] :
+        row['working'] = 1
+    # elif row['consumption'] < row['consumptionagg_40'] and row['consumption'] > row['consumptionagg_10'] :
+    #     row['working'] = 1
+    return row
+
+def get_working_days(row):
+    if row['consumption'] > row['consumptionagg_daily_upper'] :
+        row['working'] = 1
+    # elif row['consumption'] < row['consumptionagg_daily_upper'] and row['consumption'] > row['consumptionagg_daily_lower'] :
+    #     row['working'] = 1
+    return row

@@ -21,7 +21,7 @@ copy-data-1:
   - from : submission_format
     to : submission
 
-fillna-by-mean :
+fillna-by-mean-timestamp :
   - data : submission
     group-on :
       - timestamp
@@ -34,12 +34,6 @@ fillna-by-mean :
     target :
       - temperature
 
-copy-data-2:
-  - from : submission
-    to : submission_daily
-  - from : submission
-    to : submission_weekly
-
 ohe :
   - data : meta
     skip : 
@@ -49,43 +43,7 @@ customize-cells :
   - data : meta
     func : ohe_true_false
 
-# Takes array as input and return True against the values to delete and False for not to delete 
-delete-rows-0 :
-  - data : cold_start_test
-    in-col : temperature
-    condition : is_temp_na
-  # - data : cold_start_test_temp_na
-  #   in-col : temperature
-  #   condition : is_temp_not_na
-  - data : submission
-    in-col : temperature
-    condition : is_temp_na
-  - data : submission
-    in-col : prediction_window
-    condition : weekly
-  - data : submission
-    in-col : prediction_window
-    condition : daily
-  - data : submission_daily
-    in-col : temperature
-    condition : is_temp_na
-  - data : submission_daily
-    in-col : prediction_window
-    condition : weekly
-  - data : submission_daily
-    in-col : prediction_window
-    condition : hourly
-  - data : submission_weekly
-    in-col : temperature
-    condition : is_temp_na
-  - data : submission_weekly
-    in-col : prediction_window
-    condition : hourly
-  - data : submission_weekly
-    in-col : prediction_window
-    condition : daily
-
-generate-column-1 :
+generate-column-0 :
   - data : cold_start_test
     func : get_week_from_timestamp
     in-col : timestamp
@@ -98,45 +56,84 @@ generate-column-1 :
     func : get_hour_from_timestamp
     in-col : timestamp
     out-col : hour
-  - data : submission
-    func : get_week_from_timestamp
-    in-col : timestamp
-    out-col : week
-  - data : submission
-    func : get_day_from_timestamp
-    in-col : timestamp
-    out-col : on_off
-  - data : submission
-    func : get_hour_from_timestamp
-    in-col : timestamp
-    out-col : hour
-  - data : submission_daily
-    func : get_week_from_timestamp
-    in-col : timestamp
-    out-col : week
-  - data : submission_daily
-    func : get_day_from_timestamp
-    in-col : timestamp
-    out-col : on_off
-  - data : submission_daily
+  - data : cold_start_test
     func : get_day_from_timestamp
     in-col : timestamp
     out-col : day
-  - data : submission_weekly
+  - data : submission
     func : get_week_from_timestamp
     in-col : timestamp
     out-col : week
+  - data : submission
+    func : get_day_from_timestamp
+    in-col : timestamp
+    out-col : on_off
+  - data : submission
+    func : get_hour_from_timestamp
+    in-col : timestamp
+    out-col : hour
+  - data : submission
+    func : get_day_from_timestamp
+    in-col : timestamp
+    out-col : day
+
+fillna-by-mean-week-day-hour :
+  - data : cold_start_test
+    group-on :
+      - week
+      - day
+      - hour
+    target :
+      - temperature
+  - data : submission
+    group-on :
+      - week
+      - day
+      - hour
+    target :
+      - temperature
+    search-in : cold_start_test
+
+copy-data-2:
+  - from : submission
+    to : submission_daily
+  - from : submission
+    to : submission_weekly
+
+delete-columns-1:
+  - data : submission_daily
+    columns:
+      - hour
+  - data : submission_weekly
+    columns:
+      - hour
+      - on_off
+
+# Takes array as input and return True against the values to delete and False for not to delete 
+delete-rows-1 :
+  - data : submission
+    in-col : prediction_window
+    condition : weekly
+  - data : submission
+    in-col : prediction_window
+    condition : daily
+  - data : submission_daily
+    in-col : prediction_window
+    condition : weekly
+  - data : submission_daily
+    in-col : prediction_window
+    condition : hourly
+  - data : submission_weekly
+    in-col : prediction_window
+    condition : hourly
+  - data : submission_weekly
+    in-col : prediction_window
+    condition : daily
 
 #### daily column ####
 copy-data-daily-1:
   - from : cold_start_test
     to : cold_start_test_daily
-
-generate-column-day-daily :
-  - data : cold_start_test_daily
-    func : get_day_from_timestamp
-    in-col : timestamp
-    out-col : day
 
 copy-data-daily-2:
   - from : cold_start_test_daily
@@ -165,7 +162,7 @@ merge-daily-1:
   - left : cold_start_test_daily
     right : cold_start_test_daily_valid
     how : inner
-    on : 
+    merge-on : 
       - series_id
       - week
       - day
@@ -219,7 +216,7 @@ merge-weekly-1:
   - left : cold_start_test_weekly
     right : cold_start_test_weekly_valid
     how : inner
-    on : 
+    merge-on :
       - series_id
       - week
 
@@ -256,15 +253,7 @@ customize-column-weekly-norm-sec :
 
 ######################
 
-
-# delete-rows-1 :
-#   - data : cold_start_test
-#     in-col : hour
-#     condition : day_time
-#   - data : submission
-#     in-col : hour
-#     condition : day_time
-
+########### Normalization #########
 normalize :
   data : cold_start_test
   within-group : series_id
@@ -280,30 +269,26 @@ normalize-weekly :
   within-group : series_id
   target : consumption 
 
-cache : true
+###############################
 
-csv-4 :
-  index : false
-  data :
-  - cold_start_test_weekly_norm_sec
-
+################ On-Off days ############
 merge:
   - left : cold_start_test
     right : meta
     how : left
-    on : series_id
+    merge-on : series_id
   - left : submission
     right : meta
     how : left
-    on : series_id
+    merge-on : series_id
   - left : submission_daily
     right : meta
     how : left
-    on : series_id
+    merge-on : series_id
   - left : cold_start_test_daily
     right : meta
     how : left
-    on : series_id
+    merge-on : series_id
 
 # Takes series as input
 customize-row :
@@ -356,7 +341,77 @@ delete-columns :
       - sunday_is_day_off
       - prediction_window
 
-group-by-2 :
+###################################
+
+cache : True
+
+######## working hours calculation ###########
+copy-data-working-hours :
+  - from : cold_start_test
+    to : cold_start_test_working
+  - from : cold_start_test_daily
+    to : cold_start_test_daily_working
+
+group-by-working-hours:
+  - data : cold_start_test_working
+    group-on :
+      - series_id
+    custom-aggregation :
+      consumption : 
+        - agg_40
+        - agg_10
+  - data : cold_start_test_daily_working
+    group-on :
+      - series_id
+    custom-aggregation :
+      consumption : 
+        - agg_daily_upper
+        - agg_daily_lower
+
+merge-working :
+  - left : cold_start_test
+    right : cold_start_test_working
+    how : left
+    merge-on : 
+      - series_id
+  # - left : cold_start_test_daily
+  #   right : cold_start_test_daily_working
+  #   how : left
+  #   merge-on : 
+  #     - series_id
+
+delete-df-working:
+  data :
+    - cold_start_test_working
+    - cold_start_test_daily_working
+
+generate-column-working :
+  - data : cold_start_test
+    func : get_zero
+    in-col : consumptionagg_40
+    out-col : working
+  # - data : cold_start_test_daily
+  #   func : get_zero
+  #   in-col : consumptionagg_daily_upper
+  #   out-col : working
+
+customize-row-working :
+  - data : cold_start_test
+    func : get_working_hours
+  # - data : cold_start_test_daily
+  #   func : get_working_days
+
+delete-columns-working :
+  - data : cold_start_test
+    columns:
+      - consumptionagg_40
+      - consumptionagg_10
+  # - data : cold_start_test_daily
+  #   columns:
+  #     - consumptionagg_daily_upper
+  #     - consumptionagg_daily_lower
+
+group-by-weekwise :
   - data : cold_start_test
     group-on :
       - series_id
@@ -372,6 +427,36 @@ group-by-2 :
       - on_off
     as-index : False
 
+merge-working-submission :
+  - left : submission
+    right : cold_start_test
+    how : left
+    merge-on :
+      - series_id
+      - week
+      - hour  
+      - on_off
+    right-col :
+      - working
+  # - left : submission_daily
+  #   right : cold_start_test_daily
+  #   how : left
+  #   merge-on :
+  #     - series_id
+  #     - week
+  #     - day
+  #   right-col :
+  #     - working
+
+csv-1 :
+  data :
+    - submission
+    - cold_start_test
+  index : false
+
+####################################
+
+######## Seperating out holiday data ##########
 copy-data-holiday-1:
   - from : cold_start_test
     to : cold_start_test_holiday
@@ -388,7 +473,7 @@ copy-data-holiday-4:
   - from : submission_daily
     to : submission_daily_holiday
 
-delete-rows-1:
+delete-rows-2:
   - data : cold_start_test
     in-col : on_off
     condition : is_zero
@@ -414,36 +499,33 @@ delete-rows-1:
     in-col : on_off
     condition : is_one
 
+###############################################
+
+
+# matplot :
+#   - data : cold_start_test
+#     y : consumption
+#     x : hour
+#   - data : cold_start_test_holiday
+#     y : consumption
+#     x : hour
+  # - data : cold_start_test_daily_holiday
+  #   y : consumption
+  #   x : day
+
 csv-3 :
   index : false
   data :
     - cold_start_test_weekly
     - cold_start_test_daily
-    - cold_start_test
+    # - cold_start_test
     - cold_start_test_daily_holiday
     - cold_start_test_holiday
-
-# matplot :
-#   - data : cold_start_test_holiday
-#     y : consumption
-#     x : hour
-#   - data : cold_start_test_daily_holiday
-#     y : consumption
-#     x : day
 
 display :
   - data : cold_start_test
     min : consumption
     max : consumption
-
-# csv-0 :
-#   index : false
-#   data :
-#     - cold_start_test
-
-csv-1 :
-  data :
-    - meta
 
 # keras:
 #   train :
@@ -464,7 +546,7 @@ csv-1 :
 lightgbm :
   train :
     data : cold_start_test
-    skip : [series_id, week]
+    skip : [series_id, week, day]
     output : consumption
     type : LGBMRegressor
   predict :
@@ -482,7 +564,7 @@ lightgbm-daily :
 lightgbm-holiday :
   train :
     data : cold_start_test_holiday
-    skip : [series_id, week]
+    skip : [series_id, week, day]
     output : consumption
     type : LGBMRegressor
   predict :
@@ -600,27 +682,12 @@ transfer-weekly:
     data : submission_format
     key : [series_id, timestamp]
     col : consumption
-
-csv-2 :
+   
+csv-6 :
   data :
-    - submission
-    - submission_daily
-    - submission_weekly
     - submission_format
-
-# copy-data-2:
-#   from : cold_start_test
-#   to : cold_start_test_daily
-
-# customize-column :
-#   - data : cold_start_test_daily
-#     func : get_date_from_timestamp
-#     in-col : timestamp
- 
-# group-by :
-#   - data : cold_start_test
-#     group-on :
-#       - timestamp
-#     aggregation:
-#       - consumption : sum
-#       - temperature : mean
+    - submission_holiday
+    - submission_daily_holiday
+    # - submission
+    - submission_daily
+  index : false
