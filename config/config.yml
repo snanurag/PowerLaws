@@ -1,38 +1,27 @@
 data :
   read :
-    - cold_start_test :
-      skip : [0]
-    - consumption_train :
-      skip : [0]
+    - cold_start_test 
+    - consumption_train
     - meta
     - submission_format
-
-concat :
-  data :
-    target : cold_start_test
-    dataframes :
-      - consumption_train
-      
-delete-df:
-  data :
-    - consumption_train
+    - submission_benchmark
 
 copy-data-1:
   - from : submission_format
     to : submission
 
-fillna-by-mean-timestamp :
-  - data : submission
-    group-on :
-      - timestamp
-    target :
-      - temperature
-    search-in : cold_start_test
-  - data : cold_start_test
-    group-on :
-      - timestamp
-    target :
-      - temperature
+# fillna-by-mean-timestamp :
+#   - data : cold_start_test
+#     group-on :
+#       - timestamp
+#     target :
+#       - temperature
+#   - data : submission
+#     group-on :
+#       - timestamp
+#     target :
+#       - temperature
+#     search-in : cold_start_test
 
 ohe :
   - data : meta
@@ -60,6 +49,22 @@ generate-column-0 :
     func : get_day_from_timestamp
     in-col : timestamp
     out-col : day
+  - data : consumption_train
+    func : get_week_from_timestamp
+    in-col : timestamp
+    out-col : week
+  - data : consumption_train
+    func : get_day_from_timestamp
+    in-col : timestamp
+    out-col : on_off
+  - data : consumption_train
+    func : get_hour_from_timestamp
+    in-col : timestamp
+    out-col : hour
+  - data : consumption_train
+    func : get_day_from_timestamp
+    in-col : timestamp
+    out-col : day
   - data : submission
     func : get_week_from_timestamp
     in-col : timestamp
@@ -77,215 +82,16 @@ generate-column-0 :
     in-col : timestamp
     out-col : day
 
-fillna-by-mean-week-day-hour :
-  - data : cold_start_test
-    group-on :
-      - week
-      - day
-      - hour
-    target :
-      - temperature
-  - data : submission
-    group-on :
-      - week
-      - day
-      - hour
-    target :
-      - temperature
-    search-in : cold_start_test
-
-copy-data-2:
-  - from : submission
-    to : submission_daily
-  - from : submission
-    to : submission_weekly
-
-delete-columns-1:
-  - data : submission_daily
-    columns:
-      - hour
-  - data : submission_weekly
-    columns:
-      - hour
-      - on_off
-
-# Takes array as input and return True against the values to delete and False for not to delete 
-delete-rows-1 :
-  - data : submission
-    in-col : prediction_window
-    condition : weekly
-  - data : submission
-    in-col : prediction_window
-    condition : daily
-  - data : submission_daily
-    in-col : prediction_window
-    condition : weekly
-  - data : submission_daily
-    in-col : prediction_window
-    condition : hourly
-  - data : submission_weekly
-    in-col : prediction_window
-    condition : hourly
-  - data : submission_weekly
-    in-col : prediction_window
-    condition : daily
-
-#### daily column ####
-copy-data-daily-1:
-  - from : cold_start_test
-    to : cold_start_test_daily
-
-copy-data-daily-2:
-  - from : cold_start_test_daily
-    to : cold_start_test_daily_valid
-
-group-by-daily-1 :
-  - data : cold_start_test_daily_valid
-    group-on :
-      - series_id
-      - week
-      - day
-    aggregation:
-      hour : count
-
-delete-rows-daily-valid :
-  - data : cold_start_test_daily_valid
-    in-col : hour
-    condition : count_hour_is_less
-
-delete-columns-daily-1 :
-  - data : cold_start_test_daily_valid
-    columns:
-      - hour
-
-merge-daily-1:
-  - left : cold_start_test_daily
-    right : cold_start_test_daily_valid
-    how : inner
-    merge-on : 
-      - series_id
-      - week
-      - day
-
-group-by-daily-2 :
-  - data : cold_start_test_daily
-    group-on :
-      - series_id
-      - week
-      - day
-    as-index : False
-    aggregation:
-      temperature : mean
-      consumption : sum
-      on_off : mean
-
-######################
-
-####### weekly #######
-copy-data-weekly-1:
-  - from : cold_start_test_daily
-    to : cold_start_test_weekly
-
-copy-data-weekly-valid :
-  - from : cold_start_test_daily_valid
-    to : cold_start_test_weekly_valid
-
-delete-df-daily-1:
-  data :
-    - cold_start_test_daily_valid
-
-group-by-weekly-1 :
-  - data : cold_start_test_weekly_valid
-    group-on :
-      - series_id
-      - week
-    aggregation:
-      day : count
-
-delete-rows-weekly-valid :
-  - data : cold_start_test_weekly_valid
-    in-col : day
-    condition : count_day_is_less
-
-delete-columns-weekly-1 :
-  - data : cold_start_test_weekly_valid
-    columns:
-      - day
-
-merge-weekly-1:
-  - left : cold_start_test_weekly
-    right : cold_start_test_weekly_valid
-    how : inner
-    merge-on :
-      - series_id
-      - week
-
-group-by-weekly-2 :
-  - data : cold_start_test_weekly
-    group-on :
-      - series_id
-      - week
-    as-index : False
-    aggregation:
-      temperature : mean
-      consumption : sum
-
-delete-df-weekly-1:
-  data :
-    - cold_start_test_weekly_valid
-
-copy-data-weekly-norm-secondary:
-  - from : cold_start_test_daily
-    to : cold_start_test_weekly_norm_sec
-
-group-by-weekly-norm-sec:
-  - data : cold_start_test_weekly_norm_sec
-    group-on :
-      - series_id
-    as-index : False
-    aggregation:
-      consumption : mean
-
-customize-column-weekly-norm-sec :
-  - data : cold_start_test_weekly_norm_sec
-    func : multiply_by_7
-    in-col : consumption
-
-######################
-
-########### Normalization #########
-normalize :
-  data : cold_start_test
-  within-group : series_id
-  target : consumption 
-
-normalize-daily :
-  data : cold_start_test_daily
-  within-group : series_id
-  target : consumption
-
-normalize-weekly :
-  data : cold_start_test_weekly
-  within-group : series_id
-  target : consumption 
-
-###############################
-
-################ On-Off days ############
 merge:
   - left : cold_start_test
     right : meta
     how : left
     merge-on : series_id
+  - left : consumption_train
+    right : meta
+    how : left
+    merge-on : series_id
   - left : submission
-    right : meta
-    how : left
-    merge-on : series_id
-  - left : submission_daily
-    right : meta
-    how : left
-    merge-on : series_id
-  - left : cold_start_test_daily
     right : meta
     how : left
     merge-on : series_id
@@ -294,11 +100,9 @@ merge:
 customize-row :
   - data : cold_start_test
     func : replace_day_with_off
+  - data : consumption_train
+    func : replace_day_with_off
   - data : submission
-    func : replace_day_with_off
-  - data : cold_start_test_daily
-    func : replace_day_with_off
-  - data : submission_daily
     func : replace_day_with_off
 
 delete-columns :
@@ -311,6 +115,15 @@ delete-columns :
       - friday_is_day_off
       - saturday_is_day_off
       - sunday_is_day_off
+  - data : consumption_train
+    columns:
+      - monday_is_day_off
+      - tuesday_is_day_off
+      - wednesday_is_day_off
+      - thursday_is_day_off
+      - friday_is_day_off
+      - saturday_is_day_off
+      - sunday_is_day_off
   - data : submission
     columns:
       - monday_is_day_off
@@ -320,374 +133,58 @@ delete-columns :
       - friday_is_day_off
       - saturday_is_day_off
       - sunday_is_day_off
-      - prediction_window
-  - data : cold_start_test_daily
-    columns:
-      - monday_is_day_off
-      - tuesday_is_day_off
-      - wednesday_is_day_off
-      - thursday_is_day_off
-      - friday_is_day_off
-      - saturday_is_day_off
-      - sunday_is_day_off
-  - data : submission_daily
-    columns:
-      - monday_is_day_off
-      - tuesday_is_day_off
-      - wednesday_is_day_off
-      - thursday_is_day_off
-      - friday_is_day_off
-      - saturday_is_day_off
-      - sunday_is_day_off
-      - prediction_window
-
-###################################
+      # - prediction_window
 
 cache : True
 
-######## working hours calculation ###########
-copy-data-working-hours :
-  - from : cold_start_test
-    to : cold_start_test_working
-  - from : cold_start_test_daily
-    to : cold_start_test_daily_working
-
-group-by-working-hours:
-  - data : cold_start_test_working
-    group-on :
-      - series_id
-    custom-aggregation :
-      consumption : 
-        - agg_40
-        - agg_10
-  - data : cold_start_test_daily_working
-    group-on :
-      - series_id
-    custom-aggregation :
-      consumption : 
-        - agg_daily_upper
-        - agg_daily_lower
-
-merge-working :
-  - left : cold_start_test
-    right : cold_start_test_working
-    how : left
-    merge-on : 
-      - series_id
-  # - left : cold_start_test_daily
-  #   right : cold_start_test_daily_working
-  #   how : left
-  #   merge-on : 
-  #     - series_id
-
-delete-df-working:
-  data :
-    - cold_start_test_working
-    - cold_start_test_daily_working
-
-generate-column-working :
+fillna :
   - data : cold_start_test
-    func : get_zero
-    in-col : consumptionagg_40
-    out-col : working
-  # - data : cold_start_test_daily
-  #   func : get_zero
-  #   in-col : consumptionagg_daily_upper
-  #   out-col : working
-
-customize-row-working :
-  - data : cold_start_test
-    func : get_working_hours
-  # - data : cold_start_test_daily
-  #   func : get_working_days
-
-delete-columns-working :
-  - data : cold_start_test
-    columns:
-      - consumptionagg_40
-      - consumptionagg_10
-  # - data : cold_start_test_daily
-  #   columns:
-  #     - consumptionagg_daily_upper
-  #     - consumptionagg_daily_lower
-
-group-by-weekwise :
-  - data : cold_start_test
-    group-on :
-      - series_id
-      - week
-      - hour
-      - on_off
-    as-index : False
-  - data : cold_start_test_daily
-    group-on :
-      - series_id
-      - week
-      - day
-      - on_off
-    as-index : False
-
-merge-working-submission :
-  - left : submission
-    right : cold_start_test
-    how : left
-    merge-on :
-      - series_id
-      - week
-      - hour  
-      - on_off
-    right-col :
-      - working
-  # - left : submission_daily
-  #   right : cold_start_test_daily
-  #   how : left
-  #   merge-on :
-  #     - series_id
-  #     - week
-  #     - day
-  #   right-col :
-  #     - working
+    value : 0
+  - data : consumption_train
+    value : 0
+  - data : submission
+    value : 0
 
 csv-1 :
   data :
     - submission
     - cold_start_test
+    - consumption_train
   index : false
 
-####################################
+# lstm :
+#   train:
+#     data : consumption_train
+#     epoch : 3
+#     output : consumption
+#     save : 'lstm_hour_model'
+#     input : [temperature,week,on_off,hour,day,surface_large,surface_medium,surface_small,surface_x-large,surface_x-small,surface_xx-large,surface_xx-small,base_temperature_high,base_temperature_low]
+#     seq-on : series_id
 
-######## Seperating out holiday data ##########
-copy-data-holiday-1:
-  - from : cold_start_test
-    to : cold_start_test_holiday
-
-copy-data-holiday-2:
-  - from : cold_start_test_daily
-    to : cold_start_test_daily_holiday
-
-copy-data-holiday-3:
-  - from : submission
-    to : submission_holiday
-
-copy-data-holiday-4:
-  - from : submission_daily
-    to : submission_daily_holiday
-
-delete-rows-2:
-  - data : cold_start_test
-    in-col : on_off
-    condition : is_zero
-  - data : cold_start_test_daily
-    in-col : on_off
-    condition : is_zero
-  - data : cold_start_test_holiday
-    in-col : on_off
-    condition : is_one
-  - data : cold_start_test_daily_holiday
-    in-col : on_off
-    condition : is_one
-  - data : submission
-    in-col : on_off
-    condition : is_zero
-  - data : submission_daily
-    in-col : on_off
-    condition : is_zero
-  - data : submission_holiday
-    in-col : on_off
-    condition : is_one
-  - data : submission_daily_holiday
-    in-col : on_off
-    condition : is_one
-
-###############################################
-
-
-# matplot :
-#   - data : cold_start_test
-#     y : consumption
-#     x : hour
-#   - data : cold_start_test_holiday
-#     y : consumption
-#     x : hour
-  # - data : cold_start_test_daily_holiday
-  #   y : consumption
-  #   x : day
-
-csv-3 :
-  index : false
-  data :
-    - cold_start_test_weekly
-    - cold_start_test_daily
-    # - cold_start_test
-    - cold_start_test_daily_holiday
-    - cold_start_test_holiday
-
-display :
-  - data : cold_start_test
-    min : consumption
-    max : consumption
-
-# keras:
+# lstm-1 :
+#   load : lstm_hour_model
 #   train :
 #     data : cold_start_test
-#     skip : [series_id]
 #     output : consumption
-#     activation : softmax
-#     model : sequential
-#     initializer : normal
-#     loss : mean_squared_error
-#     optimizer : sgd
-#     metrics : [accuracy]
-#     validate : true
-#     epochs : 20
-#   predict :
-#     data : submission
+#     input : [temperature,week,on_off,hour,day,surface_large,surface_medium,surface_small,surface_x-large,surface_x-small,surface_xx-large,surface_xx-small,base_temperature_high,base_temperature_low]
+#     seq-on : series_id
+#     epoch : 1
+#     predict : submission
 
-lightgbm :
-  train :
-    data : cold_start_test
-    skip : [series_id, week, day]
-    output : consumption
-    type : LGBMRegressor
-  predict :
-    data : submission
+# cache : True
 
-lightgbm-daily :
-  train :
-    data : cold_start_test_daily
-    skip : [series_id, week]
-    output : consumption
-    type : LGBMRegressor
-  predict :
-    data : submission_daily
+# transfer:
+#   from :
+#     data : submission_hr_pred
+#     key : [pred_id]
+#     col : consumption
+#   to :
+#     data : submission_benchmark
+#     key : [pred_id]
+#     col : consumption
 
-lightgbm-holiday :
-  train :
-    data : cold_start_test_holiday
-    skip : [series_id, week, day]
-    output : consumption
-    type : LGBMRegressor
-  predict :
-    data : submission_holiday
+# csv-2 :
+#   data :
+#     - submission_benchmark
+#   index : false
 
-lightgbm-daily-holiday :
-  train :
-    data : cold_start_test_daily_holiday
-    skip : [series_id, week]
-    output : consumption
-    type : LGBMRegressor
-  predict :
-    data : submission_daily_holiday
-
-lightgbm-weekly :
-  train :
-    data : cold_start_test_weekly
-    skip : [series_id]
-    output : consumption
-    type : LGBMRegressor
-  predict :
-    data : submission_weekly
-
-# xgboost :
-#   pre-train:
-#     data : cold_start_test_temp_na
-#     skip : [series_id]
-#     output : consumption
-#     type : regression
-#   train :
-#     data : cold_start_test
-#     skip : [series_id]
-#     output : consumption
-#     type : regression
-#   predict :
-#     data : submission
-
-de-normalize :
-  data : submission
-  normalized-data : cold_start_test
-  target : consumption
-  within-group : series_id
-
-de-normalize-daily :
-  data : submission_daily
-  normalized-data : cold_start_test_daily
-  target : consumption
-  within-group : series_id
-
-de-normalize-holiday :
-  data : submission_holiday
-  normalized-data : cold_start_test
-  target : consumption
-  within-group : series_id
-
-de-normalize-daily-holiday :
-  data : submission_daily_holiday
-  normalized-data : cold_start_test_daily
-  target : consumption
-  within-group : series_id
-
-de-normalize-weekly :
-  data : submission_weekly
-  normalized-data : cold_start_test_weekly
-  target : consumption
-  within-group : series_id
-  secondary-source : cold_start_test_weekly_norm_sec
-
-transfer:
-  from :
-    data : submission
-    key : [series_id, timestamp]
-    col : consumption
-  to :
-    data : submission_format
-    key : [series_id, timestamp]
-    col : consumption
-
-transfer-daily:
-  from :
-    data : submission_daily
-    key : [series_id, timestamp]
-    col : consumption
-  to :
-    data : submission_format
-    key : [series_id, timestamp]
-    col : consumption
-
-transfer-holiday:
-  from :
-    data : submission_holiday
-    key : [series_id, timestamp]
-    col : consumption
-  to :
-    data : submission_format
-    key : [series_id, timestamp]
-    col : consumption
-
-transfer-daily-holiday:
-  from :
-    data : submission_daily_holiday
-    key : [series_id, timestamp]
-    col : consumption
-  to :
-    data : submission_format
-    key : [series_id, timestamp]
-    col : consumption
-
-transfer-weekly:
-  from :
-    data : submission_weekly
-    key : [series_id, timestamp]
-    col : consumption
-  to :
-    data : submission_format
-    key : [series_id, timestamp]
-    col : consumption
-   
-csv-6 :
-  data :
-    - submission_format
-    - submission_holiday
-    - submission_daily_holiday
-    # - submission
-    - submission_daily
-  index : false
